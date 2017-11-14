@@ -1,7 +1,9 @@
 package com.wm.instawebmob.utils;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 
+import com.koushikdutta.ion.Ion;
 import com.wm.instawebmob.database.SQLiteHelper;
 import com.wm.instawebmob.object.DataObject;
 import com.wm.instawebmob.object.LocationObject;
@@ -35,19 +37,6 @@ public class ParseJSON {
         return photoList;
     }
 
-    public static final ArrayList<LocationObject> getLocationObject(JSONArray dataArray) throws JSONException {
-        ArrayList<LocationObject> locationList = new ArrayList<>();
-        int length = dataArray.length();
-        if (length > 0) {
-            for (int i = 0; i < length; i++) {
-                JSONObject jsonLocation = dataArray.getJSONObject(i).getJSONObject(Constants.LOCATION_KEY);
-                locationList.add(new LocationObject(jsonLocation.getString(Constants.LATITUDE), jsonLocation.getString(Constants.LONGITUDE),
-                        jsonLocation.getString(Constants.NAME_KEY), jsonLocation.getString(Constants.ID_KEY)));
-            }
-        }
-        return locationList;
-    }
-
     public static boolean syncRecord(Context context, JSONArray dataArray) throws JSONException {
         try {
             SQLiteHelper sqLiteHelper = new SQLiteHelper(context);
@@ -55,13 +44,15 @@ public class ParseJSON {
             for (int i = 0; i < dataArrayLength; i++) {
                 JSONObject innerObject = dataArray.getJSONObject(i);
                 String dataId = innerObject.getString(Constants.ID_KEY);
-                if (!sqLiteHelper.isRecordExists(dataId)) {
+                JSONObject imageObject = innerObject.getJSONObject(Constants.IMAGES_KEY);
+                JSONObject resolutionObject = imageObject.getJSONObject(Constants.LOW_RESOLUTION);
+                String imageUrl = resolutionObject.getString(Constants.IMAGE_URL);
+                if (!sqLiteHelper.isRecordExists(imageUrl)) {
                     JSONObject userObject = innerObject.getJSONObject(Constants.USER_KEY);
                     String username = userObject.getString(Constants.USER_NAME);
                     String fullName = userObject.getString(Constants.USER_FULL_NAME);
                     String profilePic = userObject.getString(Constants.PROFILE_PICTURE);
-                    JSONObject imageObject = innerObject.getJSONObject(Constants.IMAGES_KEY);
-                    JSONObject resolutionObject = imageObject.getJSONObject(Constants.LOW_RESOLUTION);
+
                     String locationId = "";
                     String latitude = "";
                     String longitude = "";
@@ -73,10 +64,14 @@ public class ParseJSON {
                         longitude = locationObject.getString(Constants.LONGITUDE);
                         locationName = locationObject.getString(Constants.NAME_KEY);
                     }
+                    Bitmap imageBtMap = Ion.with(context)
+                            .load(imageUrl).asBitmap().get();
+                    Bitmap profileBtMap = Ion.with(context)
+                            .load(profilePic).asBitmap().get();
                     sqLiteHelper.insertRecord(new DataObject(dataId, username, fullName,
-                            profilePic, resolutionObject.getString(Constants.IMAGE_URL), resolutionObject.getString(Constants.IMAGE_WIDTH),
+                            profilePic, imageUrl, resolutionObject.getString(Constants.IMAGE_WIDTH),
                             resolutionObject.getString(Constants.IMAGE_HEIGHT), locationId, latitude,
-                            longitude, locationName));
+                            longitude, locationName, Utils.getBytes(imageBtMap),Utils.getBytes(profileBtMap)));
 
                 }
             }
